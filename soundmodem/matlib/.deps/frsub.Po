@@ -1,0 +1,5 @@
+frsub.o frsub.o: frsub.c mat.h ../config.h
+
+mat.h:
+
+../config.h:

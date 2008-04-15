@@ -1,0 +1,5 @@
+fcconj.o fcconj.o: fcconj.c mat.h ../config.h
+
+mat.h:
+
+../config.h:

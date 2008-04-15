@@ -1,0 +1,11 @@
+fec.o fec.o: fec.c modemconfig.h fec.h fectable.h bch.h misc.h
+
+modemconfig.h:
+
+fec.h:
+
+fectable.h:
+
+bch.h:
+
+misc.h:

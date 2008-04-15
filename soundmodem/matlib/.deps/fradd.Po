@@ -1,0 +1,5 @@
+fradd.o fradd.o: fradd.c mat.h ../config.h
+
+mat.h:
+
+../config.h:
