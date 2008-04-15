@@ -1,3 +1,0 @@
-bch.o bch.o: bch.c bch.h
-
-bch.h:

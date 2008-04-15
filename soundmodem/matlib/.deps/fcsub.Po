@@ -1,5 +1,0 @@
-fcsub.o fcsub.o: fcsub.c mat.h ../config.h
-
-mat.h:
-
-../config.h:

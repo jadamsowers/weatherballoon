@@ -1,7 +1,0 @@
-frdet.o frdet.o: frdet.c ../config.h mat.h ../config.h
-
-../config.h:
-
-mat.h:
-
-../config.h:

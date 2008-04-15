@@ -1,5 +1,0 @@
-fcadd.o fcadd.o: fcadd.c mat.h ../config.h
-
-mat.h:
-
-../config.h:
