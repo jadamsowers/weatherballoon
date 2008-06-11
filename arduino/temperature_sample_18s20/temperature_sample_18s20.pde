@@ -76,26 +76,44 @@ void loop(void) {
    */
 
   //debug code!
-  data[0] = 206;
+  /*
+  data[0] = 255;
   data[1] = 255;
-
+  */
+  
   int tempRaw = (data[1] << 8) + data[0];
 
   float tempInC = tempRaw / 2.0; 
   float tempInF = tempInC * 1.8 + 32;
 
   int intTempInC = tempInC;
-  int intTempInCrem = (tempInC - intTempInC) * 10;
+  int intTempInCrem = abs(tempInC - intTempInC) * 10;
   int intTempInF = tempInF;
-  int intTempInFrem = (tempInF - intTempInF) * 10;
+  int intTempInFrem = abs(tempInF - intTempInF) * 10;
 
   Serial.print("temperature: ");
-  Serial.print(intTempInC);
+  if(tempInC < 0 && tempInC > -1)
+  {
+    //special case: -0.x
+    Serial.print("-0");
+  } 
+  else  
+  {
+    Serial.print(intTempInC);
+  }
   Serial.print(".");
   Serial.print(intTempInCrem);
   Serial.print("C, ");
 
-  Serial.print(intTempInF);
+  if(tempInF < 0 && tempInF > -1)
+  {
+    //special case: -0.x
+    Serial.print("-0");
+  } 
+  else  
+  {
+    Serial.print(intTempInF);
+  }
   Serial.print(".");
   Serial.print(intTempInFrem);
   Serial.println("F");
