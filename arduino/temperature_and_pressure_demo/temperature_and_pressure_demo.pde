@@ -24,13 +24,14 @@ void loop(void) {
     return;
   }
 
+/*
   Serial.print("R=");
   for( i = 0; i < 8; i++) {
     Serial.print(addr[7 - i], HEX);
     Serial.print(" ");
   }
   Serial.println("");
-
+*/
 
   if ( OneWire::crc8( addr, 7) != addr[7]) {
     Serial.print("CRC is not valid!\n");
@@ -53,15 +54,8 @@ void loop(void) {
   ds.select(addr);    
   ds.write(0xBE);         // Read Scratchpad
 
-  /* Serial.print("P=");
-   Serial.print(present,HEX);
-   Serial.print(" ");*/
-
   for ( i = 0; i < 9; i++) {           // we need 9 bytes
     data[i] = ds.read();
-    /*    Serial.print(data[i], HEX);
-     Serial.print(" ");
-     */
   }
 
   /*
@@ -134,6 +128,7 @@ void loop(void) {
   Serial.print("Current pressure: ");
   Serial.print(intPressure);
   Serial.print(".");
-  Serial.println(intPressureRem);
+  Serial.print(intPressureRem);
+  Serial.println(" psi");
 
 }
