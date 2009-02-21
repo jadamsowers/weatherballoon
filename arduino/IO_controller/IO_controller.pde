@@ -3,13 +3,13 @@
 // DS18S20 Temperature chip i/o
 
 int pressurePin = 0;
-int x;
+int oneWirePin  = 10;
 
 boolean rawOutput = false;
 boolean tempOutputC = true;
 boolean verbose = false;
 
-OneWire ds(10);  // on pin 10
+OneWire ds(oneWirePin);  
 
 byte insideTemp[8]  = { 0x10, 0x96, 0xC5, 0x81, 0x01, 0x08, 0x00, 0x83 };
 byte outsideTemp[8] = { 0x10, 0xAA, 0xE6, 0x81, 0x01, 0x08, 0x00, 0xA5 };
@@ -92,10 +92,10 @@ void readTemperature(boolean isRaw, boolean isCelcius)
   {
     Serial.println(tempRaw);
   }
-  else
+  else 
   {
     float tempInC = tempRaw / 2.0; 
-    if(isCelcius)
+    if(isCelcius)  // Celcius units requested
     {
       int intTempInC = tempInC;
       int intTempInCrem = abs(tempInC - intTempInC) * 10;
@@ -113,7 +113,7 @@ void readTemperature(boolean isRaw, boolean isCelcius)
       Serial.print(intTempInCrem);
       Serial.println("C");
    }
-   else
+   else  // Fahrenheit units requested
    {
       float tempInF = tempInC * 1.8 + 32;
 
@@ -140,8 +140,9 @@ void setup(void)
 {
   // initialize inputs/outputs
   // start serial port
-  Serial.begin(115200);
+  Serial.begin(9600);
 
+  // start monitoring the inside temperature 
   addr = insideTemp;
 }
 
