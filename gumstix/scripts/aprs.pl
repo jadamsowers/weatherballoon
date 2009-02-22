@@ -4,19 +4,25 @@
 # J. Adam Sowers, David Wilson, Bryan Knight
 # http://www.theraccoonproject.org/
 
-
 use IO::Socket;
 use IO::Select;
 use IO::File;
+
+$DATE = `date "+%Y%m%d"`;
+chomp($DATE);
 
 # gpsd host/socket
 $GPSDHOST = "127.0.0.1";
 $GPSDPORT = "2947";
 
 # logging information (might want to store this on external media)
-$LOGDIR = "/var/log"
-$LOGFILE = "aprs.log";
-$MAPCHAR = "O"; 		# O = balloon :)
+$LOGDIR = "/var/log";
+$LOGFILE = "aprs_$DATE.log";
+
+# find the appropriate APRS symbol for your project here:
+# http://wa8lmf.net/miscinfo/APRS_Symbol_Chart.pdf
+$SYMBOLTABLE="/";
+$MAPCHAR = "O"; 
 
 # Enter whatever text you want here 
 # it will appear at the end of the beacon string.
@@ -26,6 +32,8 @@ $DEBUG = 0;
 # This must match the interface you defined in /etc/ax25/axports
 $INTERFACE= 1;
 
+# The script will log data every $loginterval seconds. 
+# It will send the beacon every $loginterval * $beaconmultiple seconds.
 $loginterval = 15;
 $beaconcounter = $beaconmultiple = 4;
 
@@ -128,7 +136,7 @@ while (1) {
     $gps_lat = $gps_lat_deg . sprintf("%02d", $gps_lat_min) .  $gps_lat_min_dec;
     $gps_lon = $gps_lon_deg . sprintf("%02d", $gps_lon_min) .  $gps_lon_min_dec;
 
-    print $gps_lat_dir . $gps_lat . " " . $gps_lon_dir . $gps_lon . "\n";
+    debug($gps_lat_dir . $gps_lat . " " . $gps_lon_dir . $gps_lon);
   }
 
   if ($gps_okay = (($result = gps_command($gpsd, "v")) ? (1 && $gps_okay) : 0)) {
@@ -144,7 +152,17 @@ while (1) {
     $gps_alt = $1 * 3.28;
   }
 
-  $aprs_string = sprintf("\=%.6dh%07.2f%s/%08.2f%s%s%.3d/%.3d/A=%.6d", $gps_utc, $gps_lat, $gps_lat_dir, $gps_lon, $gps_lon_dir, $MAPCHAR, $gps_heading, $gps_speed, $gps_alt);
+  $aprs_string = sprintf("\=%.6dh%07.2f%s%s%08.2f%s%s%.3d/%.3d/A=%.6d", 
+		$gps_utc, 
+		$gps_lat, 
+		$gps_lat_dir, 
+		$SYMBOLTABLE, 
+		$gps_lon, 
+		$gps_lon_dir, 
+		$MAPCHAR, 
+		$gps_heading, 
+		$gps_speed, 
+		$gps_alt);
   $aprs_string = $aprs_string." INVALID" unless $gps_valid;
   $aprs_string = $aprs_string." GPSERROR" unless $gps_okay;
 
