@@ -1,16 +1,19 @@
 #!/usr/bin/perl
-use warnings;
 
-$DATE = `date "+%Y%m%d"`;
-chomp($DATE);
+use warnings;
+use IO::Socket;
+use IO::Select;
+use IO::File;
 
 # configure port and speed to match the device
 $LOGDIR		= "/var/log";
-$LOGFILE	= "pt_data_$DATE.log";
-$PORT		= "/dev/arduino";
-$BAUD		= "9600";
+$LOGFILE	= "pt_data.log";
 $INTERVAL	= 10;
 $DEBUG		= 0;
+
+# Arduino's host and port (using SerialDaemon)
+$ARDHOST 	= "127.0.0.1";
+$ARDPORT 	= "9600";
 
 sub debug
 {
@@ -21,39 +24,84 @@ sub debug
   }
 }
 
+
+sub ard_command {
+  my (@ready, $s, $buf);
+  my $handle = shift(@_);
+  my $command = shift(@_);
+  my $read_set = new IO::Select($handle);
+  debug("Sending to socket: [$command]");
+  print $handle "$command";
+  while (1) {
+    if (@ready = $read_set->can_read(2)) 
+    {
+      foreach $s (@ready) 
+      {
+	$buf = <$s>;
+	if($buf)
+	{
+	  # The Arduino (through serialdaemon) seems to return an extra \r\n or so in between commands.
+	  # Clean up the incoming buffer and if it's valid, return it. Otherwise, check the next packet.
+	  chomp($buf);
+	  $buf =~ s/\r$//;
+          if($buf)
+	  {
+            debug("Got from socket: [$buf]");
+	    return $buf;
+	  }
+	}
+      }
+    }
+    else 
+    {
+      return 0;
+    }
+  }        
+}
+
+# sends a command to the Arduino and returns the result
 sub askForData 
 {
   local($cmdstr) = @_;
   debug("sending the command \"${cmdstr}\" to Arduino");
-  print DEV $cmdstr;
-  $result = <DEV>;
-  chomp($result);
-  $result =~ s/\r$//;
-  debug("Arduino returned: [". $result . "]");
-  return $result;
+  $result = ard_command($ard, $cmdstr);
+  if($result)
+  {
+    chomp($result);
+    $result =~ s/\r$//;
+    debug("Arduino returned: [". $result . "]");
+    return $result;
+  }
+  else
+  {
+    print "ERROR: Arduino returned an invalid result\n";
+    return;
+  }
 }
 
-# set up the serial port
-debug("setting up serial port");
-system("stty $BAUD raw < $PORT");
-
-
 # open the log file
-debug("opening log file $LOGDIR/$LOGFILE");
-open(LOG, ">>${LOGDIR}/${LOGFILE}") || die "can't open file $LOGDIR/$LOGFILE for append";
-select((select(LOG), $| = 1)[0]);
+$logfile = new IO::File(">>$LOGDIR/$LOGFILE");
+die "Could not open log file: $!\n" unless $logfile;
+$logfile->autoflush(1);
 
-
-# open the port
-debug("opening Arduino port: $PORT");
-open(DEV, "+<$PORT") || die "can't open $PORT: $!";
-#select((select(DEV), $| = 1)[0]);
-
+# open the Arduino socket
+$opencount = 0;
+while ((! $ard) && ($opencount < 30)) 
+{
+  $ard = new IO::Socket::INET
+            (PeerAddr => $ARDHOST,
+             PeerPort => $ARDPORT,
+             Proto    => 'tcp',);
+  $opencount++;
+  sleep 1;
+}
+die "Could not create socket: $!\n" unless $ard;
+$ard->autoflush(1);
 
 # tell the Arduino to suppress status messages ('q') and return results in Celcius ('c')
 #  human-readable ('h') results.
 debug("sending initial commands to Arduino");
-print DEV "qch";
+print $ard "qch";
 
 
 while(1) 
@@ -69,10 +117,12 @@ while(1)
   # pressure
   $logstr .= " " . askForData("p");
  
-  $log = time() . " $logstr\n";
+  $time = `date "+%Y%m%d%H%M%S"`;
+  chomp($time);
+  $log = "$time $logstr\n";
 
   debug("LOG: $log");
-  print LOG $log;
+  print $logfile $log;
 
   sleep $INTERVAL;
 }
