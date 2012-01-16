@@ -4,19 +4,20 @@
 # J. Adam Sowers, David Wilson, Bryan Knight
 # http://www.theraccoonproject.org/
 
-
 use IO::Socket;
 use IO::Select;
 use IO::File;
 
-# gpsd host/socket
+$DATE = `date "+%Y%m%d"`;
+chomp($DATE);
+
+# gpsd host/port
 $GPSDHOST = "127.0.0.1";
 $GPSDPORT = "2947";
 
 # logging information (might want to store this on external media)
-$LOGDIR 	= "/var/log";
-$APRSLOG 	= "aprs.log";
-$PTLOG		= "pt_data.log";
+$LOGDIR = "/var/log";
+$LOGFILE = "aprs_$DATE.log";
 
 # find the appropriate APRS symbol for your project here:
 # http://wa8lmf.net/miscinfo/APRS_Symbol_Chart.pdf
@@ -29,8 +30,10 @@ $CUSTOM = "WX Balloon theraccoonproject.org";
 $DEBUG = 0;  
 
 # This must match the interface you defined in /etc/ax25/axports
-$INTERFACE= 1;
+$INTERFACE = 1;
 
+# The script will log data every $loginterval seconds. 
+# It will send the beacon every $loginterval * $beaconmultiple seconds.
 $loginterval = 15;
 $beaconcounter = $beaconmultiple = 4;
 
@@ -43,8 +46,7 @@ sub debug
   }
 }
 
-sub gps_command 
-{
+sub gps_command {
   my @ready, $s, $buf;
   my $handle = shift(@_);
   my $command = shift(@_);
@@ -64,37 +66,18 @@ sub gps_command
     }
   }        
 }
-
-sub getTempPressureData
-{
-  $latest = `tail -n 1 $LOGDIR/$PTLOG`;
-  debug("PT log: $latest");
-  $latest =~ m/([\d]+) (.*)/;
-  
-  $time = `date "+%Y%m%d%H%M%S"`;
-  chomp($time);
-
-  # check to make sure the data is fresh
-  if(($time - $1) < 30)
-  {
-    $pt = $2;
-    debug($pt);
-    return $pt;
-  }
-  else
-  {
-    return "NO PT DATA";
-  }
-}
                
 $| = 1;
 
-$aprslog = new IO::File(">>$LOGDIR/$APRSLOG");
+# open the APRS log file
+$aprslog = new IO::File(">>$LOGDIR/$LOGFILE");
 die "Could not open log file: $!\n" unless $aprslog;
 $aprslog->autoflush(1);
 
+# open the gpsd socket
 $opencount = 0;
-while ((! $gpsd) && ($opencount < 30)) {
+while ((! $gpsd) && ($opencount < 30)) 
+{
   $gpsd = new IO::Socket::INET
             (PeerAddr => $GPSDHOST,
              PeerPort => $GPSDPORT,
@@ -185,8 +168,6 @@ while (1) {
 		$gps_alt);
   $aprs_string = $aprs_string." INVALID" unless $gps_valid;
   $aprs_string = $aprs_string." GPSERROR" unless $gps_okay;
-  $aprs_string .= " " . getTempPressureData();
-  debug("APRS string: $aprs_string");
 
   print $aprslog "$aprs_string\n";
 
