@@ -1,23 +1,35 @@
+#include <SoftwareSerial.h>
+#include <SSerial2Mobile.h>
 #include <OneWire.h>
 
-// DS18S20 Temperature chip i/o
 
-int pressurePin = 0;
-int oneWirePin  = 10;
+#define pressurePin 0
+#define oneWirePin  10
 
-boolean rawOutput = false;
-boolean tempOutputC = true;
+#define phoneTX 7
+#define phoneRX 6
+
+char phoneNumber[ ] = "40404";
+
+boolean rawOutput = true;
 boolean verbose = false;
 
-OneWire ds(oneWirePin);  
+OneWire ds(oneWirePin); 
+SSerial2Mobile phone = SSerial2Mobile(phoneRX, phoneTX);
 
+// Change these values to reflect your own device IDs
 byte insideTemp[8]  = { 0x10, 0x96, 0xC5, 0x81, 0x01, 0x08, 0x00, 0x83 };
 byte outsideTemp[8] = { 0x10, 0xAA, 0xE6, 0x81, 0x01, 0x08, 0x00, 0xA5 };
 
 byte data[12];
-byte *addr; 
+byte *addr = insideTemp; 
 
 
+/* 
+Samples the pressure reading on the analog pin.
+our PSI scale was determined empirically, so pass true to get the raw reading.
+*/
+   
 void readPressure(boolean isRaw)
 {
   int currentPressRaw = analogRead(pressurePin);
@@ -40,7 +52,10 @@ void readPressure(boolean isRaw)
 }
 
 
-void readTemperature(boolean isRaw, boolean isCelcius)
+
+
+// reads the temperature from the OneWire temperature sensor and outputs in deg. C
+void readTemperature()
 {
   byte i;
   byte present = 0;
@@ -88,63 +103,62 @@ void readTemperature(boolean isRaw, boolean isCelcius)
   int tempRaw = (data[1] << 8) + data[0];
 
   Serial.print("T=");
-  if(isRaw)
-  {
-    Serial.println(tempRaw);
-  }
-  else 
-  {
-    float tempInC = tempRaw / 2.0; 
-    if(isCelcius)  // Celcius units requested
-    {
-      int intTempInC = tempInC;
-      int intTempInCrem = abs(tempInC - intTempInC) * 10;
   
-      if(tempInC < 0 && tempInC > -1)
-      {
-        //special case: -0.x
-        Serial.print("-0");
-      } 
-      else  
-      {
-        Serial.print(intTempInC);	
-      }
-      Serial.print(".");
-      Serial.print(intTempInCrem);
-      Serial.println("C");
-   }
-   else  // Fahrenheit units requested
-   {
-      float tempInF = tempInC * 1.8 + 32;
-
-      int intTempInF = tempInF;
-      int intTempInFrem = abs(tempInF - intTempInF) * 10;
+  float temp = tempRaw / 2.0; 
     
-      if(tempInF < 0 && tempInF > -1)
-      {
-        //special case: -0.x
-        Serial.print("-0");
-      } 
-      else  
-      {
-        Serial.print(intTempInF);
-      }
-      Serial.print(".");
-      Serial.print(intTempInFrem);
-      Serial.println("F");          
-    }
+  int intTemp = temp;
+  int intTempRem = abs(temp - intTemp) * 10;
+
+  if(temp < 0 && temp > -1)
+  {
+    //special case: -0.x
+    Serial.print("-0");
+  } 
+  else  
+  {
+    Serial.print(intTemp);	
   }
+        
+  Serial.print(".");
+  Serial.print(intTempRem);
+  Serial.println("C");
+
 }
+
+
+void sendSMSMessage(void)
+{
+  if(verbose) 
+  {
+    
+    Serial.print("Phone status:   battery: ");
+    Serial.print(phone.batt());
+    Serial.print("%   Signal strength: ");
+    Serial.println(phone.rssi());
+    
+  }
+  
+  // for now, disable sending text messages
+  /*
+  phone.sendTxt(phoneNumber, "Test message");
+  */
+}
+
+
+
 
 void setup(void) 
 {
   // initialize inputs/outputs
-  // start serial port
-  Serial.begin(9600);
-
-  // start monitoring the inside temperature 
-  addr = insideTemp;
+  // start serial and phone ports
+  Serial.begin(9600); 
+  phone.begin();
+    
 }
+
+
+
+
 
 void loop(void) 
 {
@@ -174,22 +188,12 @@ void loop(void)
       if(verbose) Serial.println("raw output enabled");
       break;
       
-    case 'f': // Fahrenheit output
-      tempOutputC = false;
-      if(verbose) Serial.println("Temperature output will be given in degrees Fahrenheit");
-      break;
-      
-    case 'c': // Celcius output
-      tempOutputC = true;
-      if(verbose) Serial.println("Temperature output will be given in degrees Celcius");
-      break;
-      
     case 'p': // pressure reading
       readPressure(rawOutput);
       break;
       
     case 't': // temperature reading
-      readTemperature(rawOutput, tempOutputC);
+      readTemperature();
       break;      
     
     case 'q': // quiet output
@@ -199,6 +203,10 @@ void loop(void)
     case 'v': // verbose output
       verbose = true;
       Serial.println("Verbose output enabled"); 
+      break;
+      
+    case 's': // SMS
+      sendSMSMessage();
       break;
   }
 }
