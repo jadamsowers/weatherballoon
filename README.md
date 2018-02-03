@@ -1,4 +1,8 @@
-﻿# Arduino Command Set 
+﻿# Introduction
+
+This project is the resurrection of an attempt to launch a weather balloon into near-space. All of this code is migrated from a [Google Code](http://code.google.com/p/theraccoonproject) archive. The following came from the wiki articles in the original project.
+
+# Arduino Command Set 
 To facilitate easy access to temperature and pressure sensor data, we wrote a small program for the Arduino. 
 
 _Note: by default, the Arduino serial port is configured as 9600 8N1. If you need to use a different speed, update it in the top of the Arduino program before you write it to the device._
