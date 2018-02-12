@@ -1,22 +1,25 @@
-import sys, time, logging, argparse, gpsd, aprs
+#!/usr/bin/python3
+
+import sys, time, logging, argparse, json, gpsd, aprs
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-i', '--interval', type=int, default=30, help="The interval (in seconds) to send APRS updates") 
-parser.add_argument('-c', '--callsign', help="The amateur radio callsign to send")
+parser.add_argument('-c', '--config', default="config.json", help="Path to the configuration file")
 parser.add_argument('-d', '--debug', help="Send debug information to console", action="store_true")
-parser.add_argument('-t', '--table', choices=['/', '\\'], default='/', help="APRS symbol table to use")
-parser.add_argument('-s', '--symbol', default='O', help="APRS symbol to use")
-parser.add_argument('--hop', default="WIDE1-1,WIDE2-1", help="APRS digipeater hops requested")
 args = parser.parse_args()
 
-# unsure about WIDEn-n hops? 
+# thread about APRS WIDE#-# hops 
 # http://www.tapr.org/pipermail/aprssig/2014-May/043317.html
+
+# finding your APRS symbol
+# https://web.archive.org/web/20101130031326/http://wa8lmf.net/miscinfo/APRS_Symbol_Chart.pdf 
 
 if (args.debug):
 	logging.basicConfig(level=logging.DEBUG,format='%(levelname)s:%(message)s')
 else:
 	logging.basicConfig(level=logging.INFO,format='%(levelname)s:%(message)s')
-print (args)
+
+config = json.load(open(args.config))
+print(config)
 
 #frame = aprs.parse_frame(parser.callsign + ">APRS:>Weather balloon")
 

@@ -25,6 +25,41 @@ byte data[12];
 byte *addr = insideTemp; 
 
 
+void printDouble( double val, byte precision)
+{
+  // http://forum.arduino.cc/index.php/topic,44216.0.html#13
+  // prints val with number of decimal places determine by precision
+  // precision is a number from 0 to 6 indicating the desired decimial places
+  // example: lcdPrintDouble( 3.1415, 2); // prints 3.14 (two decimal places)
+
+  if (val < 0.0)
+  {
+    Serial.print('-');
+    val = -val;
+  }
+
+  Serial.print (int(val));  //prints the int part
+  if (precision > 0) 
+  {
+    Serial.print("."); // print the decimal point
+    unsigned long frac;
+    unsigned long mult = 1;
+    byte padding = precision - 1;
+    while(precision--) mult *= 10;
+
+    if (val >= 0)
+      frac = (val - int(val)) * mult;
+    else
+      frac = (int(val)- val) * mult;
+    unsigned long frac1 = frac;
+    while(frac1 /= 10) padding--;
+    while(padding--) Serial.print("0");
+    Serial.print(frac,DEC);
+  }
+}
+
+
+
 /* 
 Samples the pressure reading on the analog pin.
 our PSI scale was determined empirically, so pass true to get the raw reading.
@@ -42,12 +77,7 @@ void readPressure(boolean isRaw)
   else
   {
     float currentPressure = (currentPressRaw * 0.0157) + 1.5555555;
-    int intPressure = currentPressure;
-    int intPressureRem = (currentPressure - intPressure) * 10;
-    Serial.print(intPressure);
-    Serial.print(".");
-    Serial.print(intPressureRem);
-    Serial.println(" psi");
+    Serial.println(printDouble(currentPressure, 2));
   }
 }
 
@@ -88,7 +118,7 @@ void readTemperature()
   }
 
   /*
-  data[0] is the value in C. Because the resolution of the sensor
+  data[0] is the value in degrees C. Because the resolution of the sensor
   is to .5C, the 2^-1 bit is stored in the LSB instead of the 2^0
   bit we're used to. Therefore we will have to divide by 2 and 
   store the result in a float to avoid losing resolution.
@@ -106,21 +136,7 @@ void readTemperature()
   
   float temp = tempRaw / 2.0; 
     
-  int intTemp = temp;
-  int intTempRem = abs(temp - intTemp) * 10;
-
-  if(temp < 0 && temp > -1)
-  {
-    //special case: -0.x
-    Serial.print("-0");
-  } 
-  else  
-  {
-    Serial.print(intTemp);	
-  }
-        
-  Serial.print(".");
-  Serial.print(intTempRem);
+  Serial.print(printDouble(temp, 1));
   Serial.println("C");
 
 }
@@ -166,7 +182,7 @@ void loop(void)
   char input;
   input = Serial.read();
 
-  switch(input)
+  switch(tolower(input))
   {
     case 'i': // inside temperature
       addr = insideTemp;
