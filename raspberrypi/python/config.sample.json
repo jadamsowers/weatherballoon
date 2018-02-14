@@ -4,9 +4,7 @@
 		"callsign": "FAKECALL",
 		"table": "/",
 		"symbol": "O",
-		"hop": "WIDE1-1,WIDE2-1"
-	},
-	"other": {
-		"debug": "false"
+		"hop": "APRS VIA WIDE1-1,WIDE2-1",
+		"interface": "1"
 	}
 }
