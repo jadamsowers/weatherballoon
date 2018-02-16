@@ -21,6 +21,8 @@ if (args.debug):
 else:
 	logging.basicConfig(level=logging.INFO,format='%(levelname)s:%(message)s')
 
+logging.info("Starting up weather balloon APRS payload")
+logging.info("Loading configuration from " + args.config)
 config = json.load(open(args.config))
 logging.debug("Config file:\n" + json.dumps(config, indent=2, sort_keys=True))
 
@@ -29,11 +31,13 @@ symbol = config["aprs"]["symbol"]
 table = config["aprs"]["table"]
 interface = config["aprs"]["interface"]
 hop = config["aprs"]["hop"]
+custom = config["aprs"]["custom"]
 
-
-announce = callsign + ">APRS:>Weather balloon"
+announce = "> " + callsign + " weather balloon " + custom
 logging.debug(announce)
-frame = aprs.Frame(announce)
+
+logging.info("Sending APRS announcement")
+os.system('beacon -d "' + hop + '" -s ' + interface + ' "' + announce + '"')
 
 # connect to local gpsd instance
 logging.info('Connecting to gpsd')
@@ -58,19 +62,35 @@ while True:
 	pascals = sensor.read_pressure()
 	hectopascals = pascals / 100
 
-	sensorMessage = ' ' + '{0:.2f}'.format(degrees) + " deg C, " + '{0:.2f}'.format(hectopascals) + " hPa"
-	logging.info(sensorMessage)
+	sensorData = ' T=' + '{0:.2f}'.format(degrees) + ", P=" + '{0:.2f}'.format(hectopascals)
+	logging.debug(sensorData)
 
-	hmsDate = str('%02d' % packet.get_time().hour + '%02d' % packet.get_time().minute + '%02d' % packet.get_time().second) + 'h'
+	hmsDate = str('%02d' % packet.get_time().day + '%02d' % packet.get_time().hour + '%02d' % packet.get_time().minute) + 'z'
 
 	lat = str(aprs.dec2dm_lat(packet.lat))
 	lon = str(aprs.dec2dm_lng(packet.lon))
-	track = str(packet.movement()['track']) + '/'
-	speed = str(packet.movement()['speed']) + '/'
-	alt = str(packet.alt)
+	track = str('%03d' % math.floor(packet.movement()['track'])) + '/'
+	speed = str('%03d' % math.floor(packet.movement()['speed'])) + '/'
+	# GPS alt in meters, APRS alt in feet. 1m = 3.28084ft
+	alt = 'A=' + str(math.floor(packet.alt * 3.28084)).zfill(6)
+	
+	# APRS Data type Identifiers: http://www.aprs.org/doc/APRS101.PDF
+	#ident = '!' # position without timestamp
+	ident = '/' # position with timestamp
 
-	aprsMessage = '\=' + hmsDate + lat + table + lon + symbol + track + speed + alt + sensorMessage
-	logging.info("Sending APRS message: " + aprsMessage)
+	aprsMessage = ident      \
+				+ hmsDate    \
+				+ lat        \
+				+ table      \
+				+ lon        \
+				+ symbol     \
+				+ track      \
+				+ speed      \
+				+ alt        \
+				+ sensorData \
+				+ ' ' + custom
+
+	logging.info(str(packet.get_time()) + " Sending APRS message: " + aprsMessage)
 	#frame = aprs.Frame(aprsMessage)
 	os.system('beacon -d "' + hop + '" -s ' + interface + ' "' + aprsMessage + '"')
 	time.sleep(interval)
