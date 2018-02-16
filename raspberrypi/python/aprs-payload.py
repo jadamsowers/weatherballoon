@@ -1,8 +1,26 @@
 #!/usr/bin/python3
 
-import os, sys, math, time, logging, argparse, json, gpsd, aprs
+import os, re, sys, math, time, logging, argparse, json, gpsd, aprs, base91
 from Adafruit_BME280 import *
 
+def base91(val, len):
+	a    = math.floor(val  / 91**3)
+	amod = val % 91**3
+	b    = math.floor(amod / 91**2)
+	bmod = amod % 91**2
+	c    = math.floor(bmod / 91)
+	d    = bmod % 91
+	return ("".join(list(map(lambda x: chr(x + 33), [a,b,c,d]))))[-len:]
+
+def compressLat(lat):
+	return base91(math.floor(380926 * ( 90 - lat)), 4)
+
+def compressLon(lon):
+	return base91(math.floor(190463 * (180 + lon)), 4)
+
+def compressAlt(alt):
+	return base91(round(math.log(alt) / math.log(1.002)), 2)
+	 
 
 os.system('clear')
 parser = argparse.ArgumentParser()
@@ -65,7 +83,7 @@ while True:
 	sensorData = ' T=' + '{0:.2f}'.format(degrees) + ", P=" + '{0:.2f}'.format(hectopascals)
 	logging.debug(sensorData)
 
-	hmsDate = str('%02d' % packet.get_time().day + '%02d' % packet.get_time().hour + '%02d' % packet.get_time().minute) + 'z'
+	dhmDate = str('%02d' % packet.get_time().day + '%02d' % packet.get_time().hour + '%02d' % packet.get_time().minute) + 'z'
 
 	lat = str(aprs.dec2dm_lat(packet.lat))
 	lon = str(aprs.dec2dm_lng(packet.lon))
@@ -78,8 +96,18 @@ while True:
 	#ident = '!' # position without timestamp
 	ident = '/' # position with timestamp
 
+	base91pos   = table \
+				+ compressLat(packet.lat) \
+				+ compressLon(packet.lon) \
+				+ symbol \
+				+ compressAlt(packet.alt * 3.28084) \
+				+ 'S'
+
+	logging.info(base91pos)
+
+	'''
 	aprsMessage = ident      \
-				+ hmsDate    \
+				+ dhmDate    \
 				+ lat        \
 				+ table      \
 				+ lon        \
@@ -89,6 +117,8 @@ while True:
 				+ alt        \
 				+ sensorData \
 				+ ' ' + custom
+	'''
+	aprsMessage = ident + dhmDate + base91pos + custom
 
 	logging.info(str(packet.get_time()) + " Sending APRS message: " + aprsMessage)
 	#frame = aprs.Frame(aprsMessage)

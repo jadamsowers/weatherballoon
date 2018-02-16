@@ -16,7 +16,7 @@ chmod +x Berryconda3-2.0.0-Linux-armv7l.sh
 ./Berryconda3-2.0.0-Linux-armv7l.sh -b
 
 echo "Installing python plugins"
-sudo ~/berryconda3/bin/pip install gpsd-py3 aprs
+sudo ~/berryconda3/bin/pip install gpsd-py3 aprs base91
 
 echo "Installing python libraries for sensor"
 git clone https://github.com/adafruit/Adafruit_Python_GPIO.git
