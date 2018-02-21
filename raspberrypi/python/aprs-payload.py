@@ -1,25 +1,7 @@
 #!/usr/bin/python3
 
-import os, re, sys, math, time, logging, argparse, json, gpsd, aprs, base91
-from Adafruit_BME280 import *
-
-def base91(val, len):
-	a    = math.floor(val  / 91**3)
-	amod = val % 91**3
-	b    = math.floor(amod / 91**2)
-	bmod = amod % 91**2
-	c    = math.floor(bmod / 91)
-	d    = bmod % 91
-	return ("".join(list(map(lambda x: chr(x + 33), [a,b,c,d]))))[-len:]
-
-def compressLat(lat):
-	return base91(math.floor(380926 * ( 90 - lat)), 4)
-
-def compressLon(lon):
-	return base91(math.floor(190463 * (180 + lon)), 4)
-
-def compressAlt(alt):
-	return base91(round(math.log(alt) / math.log(1.002)), 2)
+import os, re, sys, math, time, logging, argparse, json, gpsd, aprs, base91 , subprocess, Adafruit_BME280
+from APRS_helpers import *
 	 
 
 os.system('clear')
@@ -32,7 +14,7 @@ args = parser.parse_args()
 # http://www.tapr.org/pipermail/aprssig/2014-May/043317.html
 
 # finding your APRS symbol
-# https://web.archive.org/web/20101130031326/http://wa8lmf.net/miscinfo/APRS_Symbol_Chart.pdf 
+# http://www.aprs.org/symbols/symbols-new.txt 
 
 if (args.debug):
 	logging.basicConfig(level=logging.DEBUG,format='%(levelname)s:%(message)s')
@@ -44,18 +26,19 @@ logging.info("Loading configuration from " + args.config)
 config = json.load(open(args.config))
 logging.debug("Config file:\n" + json.dumps(config, indent=2, sort_keys=True))
 
-callsign = config["aprs"]["callsign"]
-symbol = config["aprs"]["symbol"]
-table = config["aprs"]["table"]
-interface = config["aprs"]["interface"]
-hop = config["aprs"]["hop"]
-custom = config["aprs"]["custom"]
+callsign         = config["aprs"]["callsign"]
+symbol           = config["aprs"]["symbol"]
+table            = config["aprs"]["table"]
+interface        = config["aprs"]["interface"]
+hop              = config["aprs"]["hop"]
+custom           = config["aprs"]["custom"]
+seaLevelhPa      = float(config["general"]["seaLevelhPa"])
 
 announce = "> " + callsign + " weather balloon " + custom
 logging.debug(announce)
 
 logging.info("Sending APRS announcement")
-os.system('beacon -d "' + hop + '" -s ' + interface + ' "' + announce + '"')
+sendBeacon(['-d', hop, '-s', interface , announce])
 
 # connect to local gpsd instance
 logging.info('Connecting to gpsd')
@@ -75,52 +58,67 @@ while True:
 	packet = gpsd.get_current()
 	logging.debug(packet)
 
-	sensor = BME280(t_mode=BME280_OSAMPLE_8, p_mode=BME280_OSAMPLE_8, h_mode=BME280_OSAMPLE_8)
+	sensor = Adafruit_BME280.BME280( \
+			t_mode=Adafruit_BME280.BME280_OSAMPLE_8, \
+			p_mode=Adafruit_BME280.BME280_OSAMPLE_8, \
+			h_mode=Adafruit_BME280.BME280_OSAMPLE_8)
 	degrees = sensor.read_temperature()
-	pascals = sensor.read_pressure()
-	hectopascals = pascals / 100
+	hectoPascals = pascals = sensor.read_pressure() / 100
 
-	sensorData = ' T=' + '{0:.2f}'.format(degrees) + ", P=" + '{0:.2f}'.format(hectopascals)
+	altitude = 44330 * (1.0 - pow(float(hectoPascals) / seaLevelhPa, 0.1903))
+	logging.debug("Estimated altitude from pressure: " + str(altitude) + ". GPS altitude: " + str(packet.alt) + ".")
+
+	sensorData = ' T=' + '{0:.2f}'.format(degrees) + ", P=" + '{0:.2f}'.format(hectoPascals)
 	logging.debug(sensorData)
 
 	dhmDate = str('%02d' % packet.get_time().day + '%02d' % packet.get_time().hour + '%02d' % packet.get_time().minute) + 'z'
 
-	lat = str(aprs.dec2dm_lat(packet.lat))
-	lon = str(aprs.dec2dm_lng(packet.lon))
-	track = str('%03d' % math.floor(packet.movement()['track'])) + '/'
-	speed = str('%03d' % math.floor(packet.movement()['speed'])) + '/'
-	# GPS alt in meters, APRS alt in feet. 1m = 3.28084ft
-	alt = 'A=' + str(math.floor(packet.alt * 3.28084)).zfill(6)
 	
 	# APRS Data type Identifiers: http://www.aprs.org/doc/APRS101.PDF
 	#ident = '!' # position without timestamp
 	ident = '/' # position with timestamp
 
+	
+	
+	base91Lat = compressLat(packet.lat)
+	base91Lon = compressLon(packet.lon)
+	# GPS alt in meters, APRS alt in feet. 1m = 3.28084ft
+	base91alt = compressAlt(packet.alt * 3.28084)
+
 	base91pos   = table \
-				+ compressLat(packet.lat) \
-				+ compressLon(packet.lon) \
+				+ base91Lat \
+				+ base91Lon \
 				+ symbol \
-				+ compressAlt(packet.alt * 3.28084) \
-				+ 'S'
+				+ base91alt \
+				+ 'S' # see below
 
-	logging.info(base91pos)
+	''' 
+		Why 'S'? 
+	    'S' is ASCII 83
+		Subtracting '!' (ASCII 33) yields 50
+		    bit   7 6 5 43 210
+				  ------------
+		50(dec) = 0 0 1 10 010  (bin)
+		          | | |  |   +- Compression origin: software
+                  | | |  +----- NMEA source: GGA (contains altitude value)
+				  | | +-------- GPS Fix: current
+				  | +---------- (Unused)
+                  +------------ (Unused) 
+	'''
 
-	'''
-	aprsMessage = ident      \
-				+ dhmDate    \
-				+ lat        \
-				+ table      \
-				+ lon        \
-				+ symbol     \
-				+ track      \
-				+ speed      \
-				+ alt        \
-				+ sensorData \
-				+ ' ' + custom
-	'''
+	logging.info('Position: (' \
+				+ str(packet.lat) + ', ' \
+				+ str(packet.lon) + ') (' \
+				+ str(packet.alt) + 'm) => "' \
+				+ base91pos + '"')
+
 	aprsMessage = ident + dhmDate + base91pos + custom
 
 	logging.info(str(packet.get_time()) + " Sending APRS message: " + aprsMessage)
 	#frame = aprs.Frame(aprsMessage)
-	os.system('beacon -d "' + hop + '" -s ' + interface + ' "' + aprsMessage + '"')
+	#os.system('beacon -d "' + hop + '" -s ' + interface + ' "' + aprsMessage + '"')
+	arguments = ['-d', hop, '-s', interface , aprsMessage]
+	logging.debug(arguments)
+	sendBeacon(arguments)
+
 	time.sleep(interval)
