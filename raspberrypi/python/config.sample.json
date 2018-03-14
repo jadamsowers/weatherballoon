@@ -1,0 +1,11 @@
+{
+	"aprs": {
+		"interval": "15",
+		"callsign": "FAKECALL",
+		"table": "/",
+		"symbol": "O",
+		"hop": "APRS VIA WIDE1-1,WIDE2-1",
+		"interface": "1",
+		"custom": "your@email.address"
+	}
+}
