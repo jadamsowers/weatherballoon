@@ -4,8 +4,8 @@ def intToBase91(val, len):
 	if(len == 1):
 		return chr(val + ord('!'))
 	else:
-		a = math.floor(val / 91 ** (len-1))
-		b = val % 91**(len-1)
+		a = int(val / 91 ** (len-1))
+		b =     val % 91 ** (len-1)
 		return chr(a + ord('!')) + intToBase91(b, len-1)
 
 def base91ToInt(val):
@@ -16,14 +16,14 @@ def base91ToInt(val):
 		return 0
 
 def encodeLat(lat):
-	return math.floor(380926 * (90 - lat))
+	return int(380926 * (90 - lat))
 
 def decodeLat(lat):
 	return 90 - lon / 380926
 
 
 def encodeLon(lon):
-	return math.floor(190463 * (180 + lon))
+	return int(190463 * (180 + lon))
 
 def decodeLon(lon):
 	return lon / 190463 - 180
