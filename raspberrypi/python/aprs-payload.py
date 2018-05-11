@@ -99,11 +99,11 @@ while True:
 		    bit   7 6 5 43 210
 				  ------------
 		50(dec) = 0 0 1 10 010  (bin)
-		          | | |  |   +- Compression origin: software
-                  | | |  +----- NMEA source: GGA (contains altitude value)
-				  | | +-------- GPS Fix: current
-				  | +---------- (Unused)
-                  +------------ (Unused) 
+                          | | |  |   +- Compression origin: software
+                          | | |  +----- NMEA source: GGA (contains altitude value)
+                          | | +-------- GPS Fix: current
+                          | +---------- (Unused)
+                          +------------ (Unused) 
 	'''
 
 	logging.info('Position: (' \
